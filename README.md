@@ -1,3 +1,25 @@
+## mp3rec
+	mp3rec is an mp3 file name recovery tool
+
+	For example, if you have a failing USB flash drive and you use photorec (or similar tools)
+	to recover it's content you might end up with a list of files that look like this:
+
+	f11000444667.mp3
+	f11000444668.mp3
+	f11000444669.mp3
+	f11000444670.mp3
+	...
+
+	mp3rec will try to read ID3v1 metadata and find the song's title and artist, if it succeeds in
+	doing so you will end up with a list of files looking more like this:
+
+	Artist - Song title.mp3
+	Artist - Song title.mp3
+	Artist - Song title.mp3
+	...
+	
+	mp3rec will not remove or modify the original file.
+
 ### Build
 	gcc main.c -o mp3rec
 
