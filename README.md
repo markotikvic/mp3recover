@@ -17,11 +17,16 @@
 	Artist - Song title.mp3
 	Artist - Song title.mp3
 	...
+
+	For files with missing artist or title tags mp3rec will produce output similar to this:
+
+		- for files with missing artist: Title <some number>.mp3
+		- for files with missing title:  Artist <some number>.mp3
 	
 	mp3rec will not remove or modify the original file.
 
-### Build
-	gcc main.c -o mp3rec
+### How to build
+	$ make
 
 ### Usage
 	mp3rec i=<input directory> o=<output directory>
