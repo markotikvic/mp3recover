@@ -294,9 +294,10 @@ void MP3_CopyFile(ID3v1 *tags, char *out_dir) {
     }
     MP3_WriteTags(tags, fp);
     fclose(fp);
+    fclose(tags->f);
 }
 
-int parse_flags(int argc, char **argv, char **in_dir, char **out_dir, int *overwrite) {
+int parse_flags(int argc, char **argv, char **in_dir, char **out_dir) {
     if (argc < 3) {
         return 1;
     }
@@ -312,10 +313,6 @@ int parse_flags(int argc, char **argv, char **in_dir, char **out_dir, int *overw
             *out_dir = (char *) malloc(strlen(argv[i]+2) + 1);
             copy_and_terminate(*out_dir, argv[i]+2, strlen(argv[i]+2) + 1);
         }
-
-        if (strstr(argv[i], "-f") == argv[i]) {
-            *overwrite = 1;
-        }
     }
 
     return 0;
@@ -325,15 +322,14 @@ char const *usage = "usage: mp3rec i=<input directory> o=<output directory>\n";
 
 int main(int argc, char **argv) {
     char *in = NULL, *out = NULL;
-    int overwrite = 0;
 
-    int res = parse_flags(argc, argv, &in, &out, &overwrite);
+    int res = parse_flags(argc, argv, &in, &out);
     if (res != 0 || in == NULL || out == NULL) {
         printf(usage);
         return 1;
     }
 
-    printf("scanning %s and outputing to %s (%d)\n", in, out, overwrite);
+    printf("scanning %s and outputing to %s\n", in, out);
 
     DIR *dir = opendir(in);
     if (dir == NULL) {
@@ -341,14 +337,15 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    struct dirent *de;
     int total = 0;
+    char in_path[200] = { 0 };
+
+    struct dirent *de;
     while ((de = readdir(dir)) != NULL) {
         if (strstr(de->d_name, ".mp3") == NULL) {
             continue;
         }
 
-        char in_path[200] = { 0 };
         sprintf(in_path, "%s/%s", in, de->d_name);
 
         ID3v1 *t = MP3_OpenFile(in_path);
@@ -356,19 +353,16 @@ int main(int argc, char **argv) {
             printf("error opening file: %s\n", in_path);
             continue;
         }
-        total++;
 
         if (!MP3_HeaderValid(t)) {
             MP3_SetDefaultHeaders(t);
-        }
-
-        printf("%d. %s - %s\n", total, MP3_Artist(t), MP3_Title(t));
-
-        if (!overwrite) {
-            MP3_CopyFile(t, out);
-        } else {
             MP3_CloseFile(t);
+            continue;
         }
+
+        total++;
+        printf("%d. %s - %s\n", total, MP3_Artist(t), MP3_Title(t));
+        MP3_CopyFile(t, out);
 
     }
     closedir(dir);
