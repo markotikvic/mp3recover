@@ -15,7 +15,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <ctype.h>
 #include <dirent.h>
 
@@ -30,10 +29,11 @@
 */
 
 #define ID3v1_METADATA_SIZE 128
+#define MAX_PATH_SIZE       4096
 
 char const *usage = "usage: mp3rec i=<input directory> o=<output directory>\n";
 
-int parse_flags(int argc, char **argv, char **in_dir, char **out_dir);
+int parse_flags(int argc, char **argv, char *in_dir, char *out_dir);
 int contains_header(FILE *fp);
 void copy_file(FILE *fin, char *path);
 void read_tag(FILE *fp, char *dest, long end_offset, int size);
@@ -41,8 +41,9 @@ void read_artist(FILE *fp, char *dest);
 void read_title(FILE *fp, char *dest);
 
 int main(int argc, char **argv) {
-    char *in, *out;
-    if (parse_flags(argc, argv, &in, &out) != 0) {
+    char in[MAX_PATH_SIZE]  = {0};
+    char out[MAX_PATH_SIZE] = {0};
+    if (parse_flags(argc, argv, in, out) != 0) {
         printf(usage);
         return 1;
     }
@@ -54,7 +55,7 @@ int main(int argc, char **argv) {
     }
 
     int recovered = 0, scanned = 0;
-    char path[4096] = {0};
+    char path[MAX_PATH_SIZE] = {0};
     char artist[31] = {0};
     char title[31]  = {0};
 
@@ -111,27 +112,23 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-int parse_flags(int argc, char **argv, char **in_dir, char **out_dir) {
+int parse_flags(int argc, char **argv, char *in_dir, char *out_dir) {
     if (argc < 3) {
         return 1;
     }
-    *in_dir = NULL;
-    *out_dir = NULL;
 
     int i;
     for (i = 0; i < argc; i++) {
         if (strstr(argv[i], "i=") == argv[i]) {
-            *in_dir = (char *) malloc(strlen(argv[i]+2) + 1);
-            strcpy(*in_dir, argv[i]+2);
+            strcpy(in_dir, argv[i]+2);
         }
 
         if (strstr(argv[i], "o=") == argv[i]) {
-            *out_dir = (char *) malloc(strlen(argv[i]+2) + 1);
-            strcpy(*out_dir, argv[i]+2);
+            strcpy(out_dir, argv[i]+2);
         }
     }
 
-    if (*in_dir == NULL || *out_dir == NULL) {
+    if (strlen(in_dir) == 0 || strlen(out_dir) == 0) {
         return 1;
     }
 
