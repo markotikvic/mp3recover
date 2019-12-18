@@ -54,8 +54,8 @@ int main(int argc, char **argv) {
 
     int recovered = 0, scanned = 0;
     char path[4096]  = {0};
-    char artist[30] = {0};
-    char title[30]  = {0};
+    char artist[31] = {0};
+    char title[31]  = {0};
 
     struct dirent *de;
     while ((de = readdir(dir)) != NULL) {
@@ -161,11 +161,11 @@ void read_artist(FILE *fp, char *dest) {
     for (i = 0; i < 30; i++) {
         c = fgetc(fp);
         if (c == EOF || c == 0 || !isalnum(c)) {
-            dest[i] = 0;
-            return;
+            break;
         }
         dest[i] = (char) c;
     }
+    dest[i] = 0;
 }
 
 void read_title(FILE *fp, char *dest) {
@@ -174,9 +174,9 @@ void read_title(FILE *fp, char *dest) {
     for (i = 0; i < 30; i++) {
         c = fgetc(fp);
         if (c == EOF || c == 0 || !isalnum(c)) {
-            dest[i] = 0;
-            return;
+            break;
         }
         dest[i] = (char) c;
     }
+    dest[i] = 0;
 }
