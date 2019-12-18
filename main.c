@@ -36,6 +36,7 @@ char const *usage = "usage: mp3rec i=<input directory> o=<output directory>\n";
 int parse_flags(int argc, char **argv, char **in_dir, char **out_dir);
 int contains_header(FILE *fp);
 void copy_file(FILE *fin, char *path);
+void read_tag(FILE *fp, char *dest, long end_offset, int size);
 void read_artist(FILE *fp, char *dest);
 void read_title(FILE *fp, char *dest);
 
@@ -53,7 +54,7 @@ int main(int argc, char **argv) {
     }
 
     int recovered = 0, scanned = 0;
-    char path[4096]  = {0};
+    char path[4096] = {0};
     char artist[31] = {0};
     char title[31]  = {0};
 
@@ -155,10 +156,10 @@ int contains_header(FILE *fp) {
     return (strcmp(header, "TAG") == 0);
 }
 
-void read_artist(FILE *fp, char *dest) {
-    fseek(fp, -ID3v1_METADATA_SIZE+3+30, SEEK_END);
+void read_tag(FILE *fp, char *dest, long end_offset, int size) {
+    fseek(fp, end_offset, SEEK_END);
     int i, c;
-    for (i = 0; i < 30; i++) {
+    for (i = 0; i < size; i++) {
         c = fgetc(fp);
         if (c == EOF || c == 0 || !isalnum(c)) {
             break;
@@ -168,15 +169,10 @@ void read_artist(FILE *fp, char *dest) {
     dest[i] = 0;
 }
 
+void read_artist(FILE *fp, char *dest) {
+    read_tag(fp, dest, -ID3v1_METADATA_SIZE+3+30, 30);
+}
+
 void read_title(FILE *fp, char *dest) {
-    fseek(fp, -ID3v1_METADATA_SIZE+3, SEEK_END);
-    int i, c;
-    for (i = 0; i < 30; i++) {
-        c = fgetc(fp);
-        if (c == EOF || c == 0 || !isalnum(c)) {
-            break;
-        }
-        dest[i] = (char) c;
-    }
-    dest[i] = 0;
+    read_tag(fp, dest, -ID3v1_METADATA_SIZE+3, 30);
 }
