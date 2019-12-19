@@ -1,2 +1,2 @@
 all:
-	gcc main.c -o mp3rec
+	gcc main.c -Wall -o mp3recover -lid3tag -std=c99
