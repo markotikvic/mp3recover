@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
 
         printf("%d. %s - %s\n", recovered, artist, title);
 
-        //copy_file(path_in, path_out);
+        copy_file(path_in, path_out);
     }
 
     float recp = scanned > 0 ? (float) recovered / (float) scanned * 100.0 : 0.0;
