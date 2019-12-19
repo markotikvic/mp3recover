@@ -34,7 +34,9 @@
 	$ git clone https://github.com/markotikvic/mp3recover.git
 	$ cd mp3recover
 	$ make
-	(optional, may have to run with sudo): $ make install
+
+### Dependencies
+	mp3recover relies on [Underbit Technologies libid3tag library](https://www.underbit.com/products/mad/) for recovering ID3v2 tags.
 
 ### Licence
 	This program is free software: you can redistribute it and/or modify
