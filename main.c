@@ -14,43 +14,29 @@
  */
 
 #include <stdio.h>
-#include <string.h>
-#include <ctype.h>
-#include <dirent.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <sys/stat.h>
+#include <string.h>
+#include <dirent.h>
 
 #include <id3tag.h>
 
-#define MAX_PATH_SIZE 4096
+#include "util.h"
 
 #define to_latin(s) id3_ucs4_latin1duplicate(s)
+
+char const *usage = "usage: mp3rec -i=<input directory> -o=<output directory>\n";
 
 typedef struct {
     char name[1024];
     char dir[MAX_PATH_SIZE];
 } mp3_file;
 
-char const *usage = "usage: mp3rec -i=<input directory> -o=<output directory>\n";
-
 int parse_flags(int argc, char **argv, char *in_dir, char *out_dir);
 mp3_file **list_dir(char *path, int *files_n);
-int count_files(char *path, char *file_ext);
-long fsize(FILE *fp);
-void read_file(char *src, int **buff, long *nbuff);
-void write_file(char *dest, int *buff, long nbuff);
-void copy_file(char *src, char *dest);
-void copy_and_dump(char *dest, char *src);
+mp3_file *new_mp3_file(char *path, char *name);
+void sort_mp3_files(mp3_file **files, int files_n);
 void id3v2_artist(struct id3_tag *tag, char *dest);
 void id3v2_title(struct id3_tag *tag, char *dest);
-char *make_subdir_path(char *base, char *sub);
-void filepath(char *path_out, char *out_dir, char *artist, char *title, int recovered);
-int is_dir(char *path);
-void sort_mp3_files(mp3_file **files, int files_n);
-char *cut_base_dir(char *str, char *pre);
-int make_directory_all(char *path);
 
 int main(int argc, char **argv) {
     char in[MAX_PATH_SIZE]  = {0};
@@ -64,6 +50,8 @@ int main(int argc, char **argv) {
         printf("%s", usage);
         return 1;
     }
+    trim_suffix(in, "/");
+    trim_suffix(out, "/");
 
     int files_n = 0;
     mp3_file **files = list_dir(in, &files_n);
@@ -98,9 +86,9 @@ int main(int argc, char **argv) {
 
         printf("%d. %s - %s\n", recovered, artist, title);
 
-        char *sub = make_subdir_path(out, cut_base_dir(files[i]->dir, in));
-        filepath(path_out, sub, artist, title, recovered);
-        if (make_directory_all(sub) == 0) {
+        char *sub = make_subdir_path(out, trim_prefix(files[i]->dir, in));
+        if (make_directory(sub) == 0) {
+            filepath(path_out, sub, artist, title, recovered);
             copy_file(path_in, path_out);
         } else {
             printf("can't create directory %s\n", sub);
@@ -133,48 +121,6 @@ int parse_flags(int argc, char **argv, char *in_dir, char *out_dir) {
     }
 
     return 0;
-}
-
-char *make_subdir_path(char *base, char *sub) {
-    char *path = (char *) malloc(MAX_PATH_SIZE);
-    strcpy(path, base);
-    strcat(path, "/");
-    strcat(path, sub);
-    return path;
-}
-
-int is_dir(char *path) {
-    struct stat statbuf;
-    if (stat(path, &statbuf) != 0) {
-        return 0;
-    }
-
-    int dot = strrchr(path, '.') == &(path[strlen(path)-1]);
-    return S_ISDIR(statbuf.st_mode) && !dot;
-
-}
-
-int count_files(char *path, char *file_ext) {
-    DIR *dir = opendir(path);
-    if (dir == 0) {
-        return 0;
-    }
-
-    int n = 0;
-    struct dirent *de;
-    while ((de = readdir(dir)) != 0) {
-        char *sub = make_subdir_path(path, de->d_name);
-        if (is_dir(sub)) {
-            n += count_files(sub, file_ext);
-        }
-        free(sub);
-        if (strstr(de->d_name, file_ext) == 0) {
-            continue;
-        }
-        n++;
-    }
-    closedir(dir);
-    return n;
 }
 
 void sort_mp3_files(mp3_file **files, int files_n) {
@@ -232,55 +178,12 @@ mp3_file **list_dir(char *path, int *files_n) {
     return files;
 }
 
-long fsize(FILE *fp) {
-    long n = 0;
-    fseek(fp, 0L, SEEK_END);
-    n = ftell(fp);
-    rewind(fp);
-    return n;
-}
-
-void read_file(char *src, int **buff, long *nbuff) {
-    FILE *fp = fopen(src, "r");
-    if (fp == 0) {
-        return;
-    }
-    long n = fsize(fp);
-    *buff = (int *) malloc(n * sizeof(int));
-    fread(*buff, sizeof(int), n, fp);
-    *nbuff = n;
-    fclose(fp);
-}
-
-void write_file(char *dest, int *buff, long nbuff) {
-    FILE *fp = fopen(dest, "w");
-    if (fp == 0) {
-        return;
-    }
-    fwrite(buff, sizeof(int), nbuff, fp);
-    fclose(fp);
-}
-
-void copy_file(char *src, char *dest) {
-    int *buff;
-    long nbuff;
-    read_file(src, &buff, &nbuff);
-    write_file(dest, buff, nbuff);
-    if (buff != 0) {
-        free(buff);
-    }
-}
-
-void copy_and_dump(char *dest, char *src) {
-    strcpy(dest, src);
-    free(src);
-}
-
 void id3v2_artist(struct id3_tag *tag, char *dest) {
     struct id3_frame *frame = id3_tag_findframe(tag, "TPE1", 0);
     if (frame != 0) {
         id3_ucs4_t const *tmp = id3_field_getstrings(&frame->fields[1], 0);
         copy_and_dump(dest, (char *) to_latin(tmp));
+        sanitize_name(dest);
     }
 }
 
@@ -289,53 +192,6 @@ void id3v2_title(struct id3_tag *tag, char *dest) {
     if (frame != 0) {
         id3_ucs4_t const *tmp = id3_field_getstrings(&frame->fields[1], 0);
         copy_and_dump(dest, (char *) to_latin(tmp));
+        sanitize_name(dest);
     }
-}
-
-void filepath(char *path_out, char *out_dir, char *artist, char *title, int recovered) {
-    if (strlen(artist) != 0 && strlen(title) != 0) {
-        sprintf(path_out, "%s/%s - %s.mp3", out_dir, artist, title);
-    } else if (strlen(title) != 0) {
-        sprintf(path_out, "%s/%s (%d).mp3", out_dir, title, recovered);
-    } else {
-        sprintf(path_out, "%s/%s (%d).mp3", out_dir, artist, recovered);
-    }
-}
-
-char *cut_base_dir(char *str, char *pre) {
-    char *found = strstr(str, pre);
-    if (found != str) { // found but not at the start of the string
-        printf("prefix %s not found in %s\n", pre, str);
-        return str;
-    }
-
-    return &str[strlen(pre)+1];
-}
-
-int make_directory_all(char *path) {
-    struct stat st = {0};
-    char temp_path[MAX_PATH_SIZE] = {0};
-    int idx = 0;
-    char c;
-
-    while (1) {
-        while ((c = path[idx]) != '/' && c != 0) {
-            temp_path[idx] = c;
-            idx++;
-        }
-        temp_path[idx] = c;
-        idx++;
-
-        if (stat(temp_path, &st) == 0) {
-            if (c == 0) {
-                break;
-            }
-            continue;
-        }
-
-        if (mkdir(temp_path, 0700) != 0) {
-            return 1;
-        }
-    }
-    return 0;
 }
