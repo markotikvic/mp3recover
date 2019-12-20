@@ -17,8 +17,18 @@
 #define MP3_UTIL_H
 
 #include <stdio.h>
+#include <id3tag.h>
 
 #define MAX_PATH_SIZE 4096
+
+#define to_latin(s) id3_ucs4_latin1duplicate(s)
+
+typedef struct {
+    char name[1024];
+    char dir[MAX_PATH_SIZE];
+} mp3_file;
+
+int parse_flags(int argc, char **argv, char *in_dir, char *out_dir);
 
 int count_files(char *path, char *file_ext);
 long fsize(FILE *fp);
@@ -33,5 +43,11 @@ char *trim_prefix(char *str, char *pre);
 void trim_suffix(char *str, char *suf);
 int make_directory(char *path);
 void sanitize_name(char *name);
+
+mp3_file **mp3list(char *path, int *files_n);
+mp3_file *new_mp3_file(char *path, char *name);
+void sort_mp3_files(mp3_file **files, int files_n);
+void id3v2_artist(struct id3_tag *tag, char *dest);
+void id3v2_title(struct id3_tag *tag, char *dest);
 
 #endif /* MP3_UTIL_H */
