@@ -158,7 +158,7 @@ int make_directory(char *path) {
         idx++;
 
         if (stat(temp_path, &st) == 0) {
-            if (c == 0) {
+            if (c == 0) { // directory exists and we've reached end of path
                 break;
             }
             continue;

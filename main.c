@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
     int files_n = 0;
     mp3_file **files = mp3list(in, &files_n);
     if (files == 0) {
-        printf("can't open directory %s\n", in);
+        fprintf(stderr, "can't open directory %s\n", in);
         return 1;
     }
 
@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
             filepath(path_out, sub, artist, title, recovered);
             copy_file(path_in, path_out);
         } else {
-            printf("can't create directory %s\n", sub);
+            fprintf(stderr, "can't create directory %s\n", sub);
         };
         free(sub);
     }
