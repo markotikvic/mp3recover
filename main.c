@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
         char *sub = make_subdir_path(out, trim_prefix(files[i]->dir, in));
         if (make_directory(sub) == 0) {
             filepath(path_out, sub, artist, title, recovered);
-            copy_file(path_in, path_out);
+            //copy_file(path_in, path_out);
         } else {
             fprintf(stderr, "can't create directory %s\n", sub);
         };

@@ -22,6 +22,8 @@
 #define MAX_PATH_SIZE 4096
 
 #define to_latin(s) id3_ucs4_latin1duplicate(s)
+#define to_utf8(s)  id3_ucs4_utf8duplicate(s)
+#define to_utf16(s) id3_ucs4_utf16duplicate(s)
 
 typedef struct {
     char name[1024];

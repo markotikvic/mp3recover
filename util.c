@@ -182,6 +182,10 @@ void sanitize_name(char *name) {
 
 int parse_flags(int argc, char **argv, char *in_dir, char *out_dir) {
     for (int i = 0; i < argc; i++) {
+        if (strstr(argv[i], "-help") == argv[i]) {
+            return 1;
+        }
+
         if (strstr(argv[i], "-i=") == argv[i]) {
             strcpy(in_dir, argv[i]+3);
         }
@@ -257,7 +261,8 @@ void id3v2_artist(struct id3_tag *tag, char *dest) {
     struct id3_frame *frame = id3_tag_findframe(tag, "TPE1", 0);
     if (frame != 0) {
         id3_ucs4_t const *tmp = id3_field_getstrings(&frame->fields[1], 0);
-        copy_and_dump(dest, (char *) to_latin(tmp));
+        //copy_and_dump(dest, (char *) to_latin(tmp));
+        copy_and_dump(dest, (char *) to_utf8(tmp));
         sanitize_name(dest);
     }
 }
@@ -266,7 +271,8 @@ void id3v2_title(struct id3_tag *tag, char *dest) {
     struct id3_frame *frame = id3_tag_findframe(tag, "TIT2", 0);
     if (frame != 0) {
         id3_ucs4_t const *tmp = id3_field_getstrings(&frame->fields[1], 0);
-        copy_and_dump(dest, (char *) to_latin(tmp));
+        //copy_and_dump(dest, (char *) to_latin(tmp));
+        copy_and_dump(dest, (char *) to_utf8(tmp));
         sanitize_name(dest);
     }
 }
