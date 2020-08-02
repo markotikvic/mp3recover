@@ -35,53 +35,51 @@ int main(int argc, char **argv) {
     trim_suffix(out, "/");
 
     int files_n = 0;
-    mp3_file **files = mp3list(in, &files_n);
+    mp3_file **files = mp3_files_list(in, &files_n);
     if (files == 0) {
         fprintf(stderr, "can't open directory %s\n", in);
         return 1;
     }
+    if (files_n < 1) {
+        fprintf(stderr, "no files found\n");
+        return 1;
+    }
 
     int recovered = 0;
-    int scanned = files_n;
     for (int i = 0; i < files_n; i++) {
-        char path_in[MAX_PATH_SIZE] = {0};
         char path_out[MAX_PATH_SIZE] = {0};
+        char subdir_path[MAX_PATH_SIZE] = {0};
         char artist[1000] = {0};
         char title[1000]  = {0};
 
-        sprintf(path_in, "%s/%s", files[i]->dir, files[i]->name);
-
-        struct id3_file *id3file = id3_file_open(path_in, ID3_FILE_MODE_READONLY);
-        if (id3file != 0) {
-            struct id3_tag *tag = id3_file_tag(id3file);
-            id3v2_artist(tag, artist);
-            id3v2_title(tag, title);
-            id3_file_close(id3file);
+        struct id3_file *id3file = id3_file_open(files[i]->full_path, ID3_FILE_MODE_READONLY);
+        if (id3file == 0) {
+            fprintf(stderr, "can't read files %s\n", files[i]->full_path);
+            continue;
         }
 
+        struct id3_tag *tag = id3_file_tag(id3file);
+        id3v2_read_artist_title(tag, artist, title);
+        id3_file_close(id3file);
+
         if (strlen(title) == 0 && strlen(artist) == 0) {
-            //printf("can't recover %s's name: missing ID3 tags\n", files[i]->name);
             continue;
         }
         recovered++;
 
         printf("%d. %s - %s\n", recovered, artist, title);
 
-        char *sub = make_subdir_path(out, trim_prefix(files[i]->dir, in));
-        if (make_directory(sub) == 0) {
-            filepath(path_out, sub, artist, title, recovered);
-            //copy_file(path_in, path_out);
-        } else {
-            fprintf(stderr, "can't create directory %s\n", sub);
-        };
-        free(sub);
+        make_subdir_path(subdir_path, out, trim_prefix(files[i]->dir, in));
+        if (make_directory(subdir_path) != 0) {
+            fprintf(stderr, "can't create directory %s\n", subdir_path);
+            continue;
+        }
+        make_filepath(path_out, subdir_path, artist, title, recovered);
+        copy_file(files[i]->full_path, path_out);
     }
 
-    float perc = 0.0;
-    if (scanned > 0) {
-        perc = (float) recovered / (float) scanned * 100.0;
-    }
-    printf("\nscanned %d file(s), recovered %d name(s) (%.2f%%)\n", scanned, recovered, perc);
+    float perc = (float)recovered / (float)files_n * 100.0f;
+    printf("\nscanned %d file(s), recovered %d name(s) (%.2f%%)\n", files_n, recovered, perc);
 
     return 0;
 }

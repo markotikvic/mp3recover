@@ -28,28 +28,28 @@
 typedef struct {
     char name[1024];
     char dir[MAX_PATH_SIZE];
+    char full_path[MAX_PATH_SIZE];
 } mp3_file;
 
 int parse_flags(int argc, char **argv, char *in_dir, char *out_dir);
 
 int count_files(char *path, char *file_ext);
-long fsize(FILE *fp);
+long file_size(FILE *fp);
 void read_file(char *src, int **buf, long *nbuf);
 void write_file(char *dest, int *buf, long nbuf);
 void copy_file(char *src, char *dest);
-void copy_and_dump(char *dest, char *src);
-char *make_subdir_path(char *base, char *sub);
-void filepath(char *path_out, char *out_dir, char *artist, char *title, int recovered);
-int is_dir(char *path);
+void copy_and_free(char *dest, char *src);
+void make_subdir_path(char *path_out, char *base, char *sub);
+void make_filepath(char *path_out, char *out_dir, char *artist, char *title, int n);
 char *trim_prefix(char *str, char *pre);
-void trim_suffix(char *str, char *suf);
+char *trim_suffix(char *str, char *suf);
+char *sanitize_name(char *name);
 int make_directory(char *path);
-void sanitize_name(char *name);
+int is_dir(char *path);
 
-mp3_file **mp3list(char *path, int *files_n);
+mp3_file **mp3_files_list(char *path, int *files_n);
 mp3_file *new_mp3_file(char *path, char *name);
+void id3v2_read_artist_title(struct id3_tag *tag, char *artist, char *title);
 void sort_mp3_files(mp3_file **files, int files_n);
-void id3v2_artist(struct id3_tag *tag, char *dest);
-void id3v2_title(struct id3_tag *tag, char *dest);
 
 #endif /* MP3_UTIL_H */

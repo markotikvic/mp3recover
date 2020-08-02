@@ -23,12 +23,10 @@
 
 #include "util.h"
 
-char *make_subdir_path(char *base, char *sub) {
-    char *path = (char *) malloc(MAX_PATH_SIZE);
-    strcpy(path, base);
-    strcat(path, "/");
-    strcat(path, sub);
-    return path;
+void make_subdir_path(char *path_out, char *base, char *sub) {
+    strcpy(path_out, base);
+    strcat(path_out, "/");
+    strcat(path_out, sub);
 }
 
 int is_dir(char *path) {
@@ -50,12 +48,13 @@ int count_files(char *path, char *file_ext) {
 
     int n = 0;
     struct dirent *de;
+    char sub[MAX_PATH_SIZE] = {0};
     while ((de = readdir(dir)) != 0) {
-        char *sub = make_subdir_path(path, de->d_name);
+        memset(sub, 0, MAX_PATH_SIZE);
+        make_subdir_path(sub, path, de->d_name);
         if (is_dir(sub)) {
             n += count_files(sub, file_ext);
         }
-        free(sub);
         if (strstr(de->d_name, file_ext) == 0) {
             continue;
         }
@@ -65,7 +64,7 @@ int count_files(char *path, char *file_ext) {
     return n;
 }
 
-long fsize(FILE *fp) {
+long file_size(FILE *fp) {
     long n = 0;
     fseek(fp, 0L, SEEK_END);
     n = ftell(fp);
@@ -78,7 +77,7 @@ void read_file(char *src, int **buf, long *nbuf) {
     if (fp == 0) {
         return;
     }
-    long n = fsize(fp);
+    long n = file_size(fp);
     *buf = (int *) malloc(n * sizeof(int));
     fread(*buf, sizeof(int), n, fp);
     *nbuf = n;
@@ -104,18 +103,18 @@ void copy_file(char *src, char *dest) {
     }
 }
 
-void copy_and_dump(char *dest, char *src) {
+void copy_and_free(char *dest, char *src) {
     strcpy(dest, src);
     free(src);
 }
 
-void filepath(char *path_out, char *out_dir, char *artist, char *title, int recovered) {
+void make_filepath(char *path_out, char *out_dir, char *artist, char *title, int n) {
     if (strlen(artist) != 0 && strlen(title) != 0) {
         sprintf(path_out, "%s/%s - %s.mp3", out_dir, artist, title);
     } else if (strlen(title) != 0) {
-        sprintf(path_out, "%s/%s (%d).mp3", out_dir, title, recovered);
+        sprintf(path_out, "%s/%s (%d).mp3", out_dir, title, n);
     } else {
-        sprintf(path_out, "%s/%s (%d).mp3", out_dir, artist, recovered);
+        sprintf(path_out, "%s/%s (%d).mp3", out_dir, artist, n);
     }
 }
 
@@ -129,18 +128,19 @@ char *trim_prefix(char *str, char *pre) {
     return &str[strlen(pre)+1];
 }
 
-void trim_suffix(char *str, char *suf) {
+char *trim_suffix(char *str, char *suf) {
     char *fnd = strstr(str, suf);
     if (fnd == 0) {
-        return;
+        return str;
     }
 
     if (strlen(fnd) != strlen(suf)) {
-        // not at the end
-        return;
+        return str;
     }
 
     str[strlen(str) - strlen(suf)] = 0;
+
+    return str;
 }
 
 int make_directory(char *path) {
@@ -168,16 +168,19 @@ int make_directory(char *path) {
             return 1;
         }
     }
+
     return 0;
 }
 
-void sanitize_name(char *name) {
+char *sanitize_name(char *name) {
     int len = strlen(name);
     for (int i = 0; i < len; i++) {
         if (name[i] == '/' || name[i] == '\\') {
             name[i] = '_';
         }
     }
+
+    return name;
 }
 
 int parse_flags(int argc, char **argv, char *in_dir, char *out_dir) {
@@ -218,10 +221,11 @@ mp3_file *new_mp3_file(char *path, char *name) {
     mp3_file *f = (mp3_file *) malloc(sizeof(mp3_file));
     strcpy(f->name, name);
     strcpy(f->dir, path);
+    sprintf(f->full_path, "%s/%s", f->dir, f->name);
     return f;
 }
 
-mp3_file **mp3list(char *path, int *files_n) {
+mp3_file **mp3_files_list(char *path, int *files_n) {
     *files_n = count_files(path, ".mp3");
 
     DIR *dir = opendir(path);
@@ -233,16 +237,17 @@ mp3_file **mp3list(char *path, int *files_n) {
 
     int i = 0;
     struct dirent *de;
+    char sub[MAX_PATH_SIZE] = {0};
     while ((de = readdir(dir)) != 0) {
-        char *sub = make_subdir_path(path, de->d_name);
+        memset(sub, 0, MAX_PATH_SIZE);
+        make_subdir_path(sub, path, de->d_name);
         if (is_dir(sub)) {
             int subn = 0;
-            mp3_file **subfiles = mp3list(sub, &subn);
+            mp3_file **subfiles = mp3_files_list(sub, &subn);
             for (int j = 0; j < subn; j++) {
                 files[i++] = subfiles[j];
             }
         }
-        free(sub);
 
         if (strstr(de->d_name, ".mp3") == 0) {
             continue;
@@ -257,22 +262,25 @@ mp3_file **mp3list(char *path, int *files_n) {
     return files;
 }
 
-void id3v2_artist(struct id3_tag *tag, char *dest) {
-    struct id3_frame *frame = id3_tag_findframe(tag, "TPE1", 0);
-    if (frame != 0) {
-        id3_ucs4_t const *tmp = id3_field_getstrings(&frame->fields[1], 0);
-        //copy_and_dump(dest, (char *) to_latin(tmp));
-        copy_and_dump(dest, (char *) to_utf8(tmp));
-        sanitize_name(dest);
-    }
-}
+void id3v2_read_artist_title(struct id3_tag *tag, char *artist, char *title) {
+    artist[0] = 0;
+    title[0] = 0;
 
-void id3v2_title(struct id3_tag *tag, char *dest) {
-    struct id3_frame *frame = id3_tag_findframe(tag, "TIT2", 0);
-    if (frame != 0) {
-        id3_ucs4_t const *tmp = id3_field_getstrings(&frame->fields[1], 0);
-        //copy_and_dump(dest, (char *) to_latin(tmp));
-        copy_and_dump(dest, (char *) to_utf8(tmp));
-        sanitize_name(dest);
+    struct id3_frame *frame = id3_tag_findframe(tag, "TPE1", 0);
+    if (frame == 0) {
+        return;
     }
+
+    id3_ucs4_t const *tmp = id3_field_getstrings(&frame->fields[1], 0);
+    copy_and_free(artist, (char *) to_utf8(tmp));
+    sanitize_name(artist);
+
+    frame = id3_tag_findframe(tag, "TIT2", 0);
+    if (frame == 0) {
+        return;
+    }
+
+    tmp = id3_field_getstrings(&frame->fields[1], 0);
+    copy_and_free(title, (char *) to_utf8(tmp));
+    sanitize_name(title);
 }
